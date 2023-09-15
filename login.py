@@ -1,2 +1,2 @@
-mail_pass = "sads"
+mail_pass = "sadsфыв"
 username = "sanek.melnikow@mail.ru"
