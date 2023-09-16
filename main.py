@@ -59,7 +59,7 @@ def get_letter_text(msg):
     return msg
 
 
-if __name__ == '__main__':
+def make_statistic(search_criteria):
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
 
@@ -89,3 +89,7 @@ if __name__ == '__main__':
         print(get_letter_text(msg))
     print("-------------Done in {:4}-------------\n".format(time.time() - start))
     imap.logout()
+
+
+if __name__ == '__main__':
+    make_statistic(search_criteria)
