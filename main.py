@@ -59,13 +59,17 @@ def get_letter_text(msg):
     return msg
 
 
+def convert_statistic(all_messages):
+
+    return ''
+
 def make_statistic(search_criteria):
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
 
     resp_code, directories = imap.list(directory="[Mail]")
     for directory in directories:
-        print(directory.decode("UTF-8"))
+        print(directory.decode())
 
     imap.select(search_folder)
 
@@ -75,6 +79,7 @@ def make_statistic(search_criteria):
     print(len(message_uids))
 
     start = time.time()
+    all_messages = []
     for message_uid in message_uids:
         res, msg = imap.uid('fetch', message_uid, '(RFC822)')
         msg = email.message_from_bytes(msg[0][1])
@@ -85,11 +90,13 @@ def make_statistic(search_criteria):
 
         # for part in msg.walk():
         #     print(part.get_content_type())
+        all_messages.append(get_letter_text(msg))
 
-        print(get_letter_text(msg))
+    print('\n'.join(all_messages))
     print("-------------Done in {:4}-------------\n".format(time.time() - start))
     imap.logout()
+    return convert_statistic(all_messages)
 
 
-if __name__ == '__main__':
-    make_statistic(search_criteria)
+# if __name__ == '__main__':
+#     make_statistic(search_criteria)
