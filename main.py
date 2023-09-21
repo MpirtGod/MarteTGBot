@@ -60,23 +60,38 @@ def get_letter_text(msg):
 
 
 def convert_statistic(all_messages):
+    all_mess_total = []
+    delivery_total = []
+    parts = []
+    for message in all_messages:
+        total = float(re.search('Sub total: (.+?) RUB', message).group(1))
 
-    return ''
+        if 'Екатеринбург' not in message and float(total)<20000:
+            delivery = re.search('Delivery: (.+?) RUB Payment', message).group(1)
+            delivery = float(re.findall("[+-]?\d+\.\d+", delivery)[0])
+            total += delivery
+            delivery_total.append(delivery)
+        all_mess_total.append(total)
+        if 'Долями' in message:
+            parts.append(total)
+
+    return f"Найдено заказов: {len(all_messages)}\nТотал за все заказы: {round(sum(all_mess_total),2)}\nТотал СДЕК: {round(sum(delivery_total),2)}. Количество доставок: {len(delivery_total)}\n" \
+           f"Тотал долями: {round(sum(parts),2)}. Количество долями: {len(parts)}\nТотал полной оплатой: {round(sum(all_mess_total)-sum(parts),2)}"
 
 def make_statistic(search_criteria):
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
 
-    resp_code, directories = imap.list(directory="[Mail]")
-    for directory in directories:
-        print(directory.decode())
+    # resp_code, directories = imap.list(directory="[Mail]")
+    # for directory in directories:
+    #     print(directory.decode())
 
     imap.select(search_folder)
 
     status, message_uids = imap.uid('search', None, search_criteria)
     message_uids = str(message_uids[0])[2:-1].split()
-    print(message_uids)
-    print(len(message_uids))
+    # print(message_uids)
+    # print(len(message_uids))
 
     start = time.time()
     all_messages = []
@@ -92,11 +107,11 @@ def make_statistic(search_criteria):
         #     print(part.get_content_type())
         all_messages.append(get_letter_text(msg))
 
-    print('\n'.join(all_messages))
+    # print('\n'.join(all_messages))
     print("-------------Done in {:4}-------------\n".format(time.time() - start))
     imap.logout()
     return convert_statistic(all_messages)
 
 
 # if __name__ == '__main__':
-#     make_statistic(search_criteria)
+#     print(make_statistic(search_criteria))

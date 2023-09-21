@@ -7,8 +7,8 @@ import dateutil.relativedelta
 
 bot = telebot.TeleBot(token=TOKEN)
 
-time_dict = {'сегодня': (datetime.now() - timedelta(days=1)).strftime('%d-%b-%Y'),
-             'неделю': (datetime.now() - timedelta(weeks=1)).strftime('%d-%b-%Y'),
+time_dict = {'сегодня': (datetime.now()).strftime('%d-%b-%Y'),
+             'неделю': (datetime.today() - timedelta(days=datetime.today().weekday() % 7)).strftime('%d-%b-%Y'),
              'месяц': datetime(datetime.now().year, datetime.now().month, 1).strftime('%d-%b-%Y'),
              'время': datetime(2010, 1, 1).strftime('%d-%b-%Y')}
 
@@ -32,7 +32,7 @@ def help(message):
     help_button = types.KeyboardButton('Помощь')
 
     markup.add(help_button, statistic_button)
-    text = f'Заглушка на помощь'
+    text = f'Этот Бот создан для магазина Márte. Для вывода статистики за определенный промежуток времени нажмите "Статистика".'
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
 
@@ -47,7 +47,7 @@ def statistics(message):
     back = types.KeyboardButton('Назад')
 
     markup.add(statistic_day, statistic_week, statistic_month, statistic_all, statistic_cities, back)
-    text = f'Заглушка на статистику'
+    text = f'Выберите период за который выведется статистика'
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
 
@@ -59,7 +59,8 @@ def get_user_text(message):
         start(message)
     elif message.text.lower() == 'статистика':
         statistics(message)
-    elif message.text.lower() == 'статистика за сегодня' or message.text.lower() == 'статистика за неделю' or message.text.lower() == 'статистика за месяц' or message.text.lower() == 'статистика все время':
+    elif message.text.lower() == 'статистика за сегодня' or message.text.lower() == 'статистика за неделю' or message.text.lower() == 'статистика за месяц' or message.text.lower() == 'статистика за все время':
+        bot.send_message(message.chat.id, 'Загрузка...', parse_mode='html')
         start_date = time_dict[message.text.split(' ')[-1]]
         sender = 'noreply@tilda.ws'
         search_criteria = f'(FROM "{sender}" SINCE "{start_date}")'
@@ -71,6 +72,7 @@ def get_user_text(message):
 
         markup.add(help_button, statistic_button)
         text = statistic
+        bot.delete_message(message.chat.id, message_id=message.id+1)
         bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
     elif message.text.lower() == 'назад':
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -78,7 +80,7 @@ def get_user_text(message):
         help_button = types.KeyboardButton('Помощь')
 
         markup.add(help_button, statistic_button)
-        text = f'Заглушка на статистику'
+        text = f'Выберите команду'
         bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
     else:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
