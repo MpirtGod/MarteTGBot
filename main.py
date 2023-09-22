@@ -4,7 +4,8 @@ import time
 import base64
 from bs4 import BeautifulSoup
 import re
-from config import mail_pass, username, imap_server, search_criteria, search_folder
+from config import mail_pass, username, imap_server, search_folder
+from datetime import datetime, timedelta
 import quopri
 
 
@@ -59,7 +60,7 @@ def get_letter_text(msg):
     return msg
 
 
-def convert_statistic(all_messages):
+def convert_statistic(all_messages, start_date, end_date):
     all_mess_total = []
     delivery_total = []
     parts = []
@@ -75,10 +76,19 @@ def convert_statistic(all_messages):
         if 'Долями' in message:
             parts.append(total)
 
-    return f"Найдено заказов: {len(all_messages)}\nТотал за все заказы: {round(sum(all_mess_total),2)}\nТотал СДЕК: {round(sum(delivery_total),2)}. Количество доставок: {len(delivery_total)}\n" \
-           f"Тотал долями: {round(sum(parts),2)}. Количество долями: {len(parts)}\nТотал полной оплатой: {round(sum(all_mess_total)-sum(parts),2)}"
+    start_date = start_date.strftime('%d.%m.%Y')
+    end_date = end_date.strftime('%d.%m.%Y')
+    total = '{0:,}'.format(round(sum(all_mess_total))).replace(',', ' ')
+    total_sdek = '{0:,}'.format(round(sum(delivery_total))).replace(',', ' ')
+    total_parts = '{0:,}'.format(round(sum(parts))).replace(',', ' ')
+    total_full = '{0:,}'.format(round(sum(all_mess_total)-sum(parts))).replace(',', ' ')
 
-def make_statistic(search_criteria):
+    return f"Диапазон поиска: {start_date} - {end_date}\nНайдено заказов: {len(all_messages)}\nСумма за все заказы: {total}₽\n" \
+           f"Сумма СДЕК: {total_sdek}₽. Количество доставок: {len(delivery_total)}\n" \
+           f"Сумма долями: {total_parts}₽. Количество долями: {len(parts)}\nСумма полной оплатой: {total_full}₽"
+
+def make_statistic(start_date, end_date=datetime.now()):
+    check_date = start_date - timedelta(days=1)
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
 
@@ -87,14 +97,29 @@ def make_statistic(search_criteria):
     #     print(directory.decode())
 
     imap.select(search_folder)
-
+    sender = 'noreply@tilda.ws'
+    search_criteria = f'(FROM "{sender}" SINCE "{check_date.strftime("%d-%b-%Y")}" BEFORE "{(end_date + timedelta(days=1)).strftime("%d-%b-%Y")}")'
     status, message_uids = imap.uid('search', None, search_criteria)
     message_uids = str(message_uids[0])[2:-1].split()
-    # print(message_uids)
+    print(message_uids)
     # print(len(message_uids))
 
     start = time.time()
     all_messages = []
+    while True:
+        res, msg = imap.uid('fetch', message_uids[-1], '(RFC822)')
+        msg = email.message_from_bytes(msg[0][1])
+        letter_date = datetime(*email.utils.parsedate_tz(msg["Date"])[0:6])
+        if end_date.day == letter_date.day and letter_date.hour>=22:
+            message_uids.pop()
+        else: break
+    while True:
+        res, msg = imap.uid('fetch', message_uids[0], '(RFC822)')
+        msg = email.message_from_bytes(msg[0][1])
+        letter_date = datetime(*email.utils.parsedate_tz(msg["Date"])[0:6])
+        if check_date.day == letter_date.day and letter_date.hour<22:
+            message_uids.pop(0)
+        else: break
     for message_uid in message_uids:
         res, msg = imap.uid('fetch', message_uid, '(RFC822)')
         msg = email.message_from_bytes(msg[0][1])
@@ -110,7 +135,7 @@ def make_statistic(search_criteria):
     # print('\n'.join(all_messages))
     print("-------------Done in {:4}-------------\n".format(time.time() - start))
     imap.logout()
-    return convert_statistic(all_messages)
+    return convert_statistic(all_messages, start_date, end_date)
 
 
 # if __name__ == '__main__':
