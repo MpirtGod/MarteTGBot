@@ -7,6 +7,7 @@ import re
 from config import mail_pass, username, imap_server, search_folder
 from datetime import datetime, timedelta
 import quopri
+from collections import Counter
 
 
 def get_letter_text_from_html(body):
@@ -46,7 +47,8 @@ def extract_text(msg):
             letter_text = _RE_COMBINE_WHITESPACE.sub(" ", extract_part).strip()
         count += 1
         return letter_text
-    else: return ''
+    else:
+        return ''
 
 
 def get_letter_text(msg):
@@ -67,7 +69,7 @@ def convert_statistic(all_messages, start_date, end_date):
     for message in all_messages:
         total = float(re.search('Sub total: (.+?) RUB', message).group(1))
 
-        if 'Екатеринбург' not in message and float(total)<20000:
+        if 'Екатеринбург' not in message and float(total) < 20000:
             delivery = re.search('Delivery: (.+?) RUB Payment', message).group(1)
             delivery = float(re.findall("[+-]?\d+\.\d+", delivery)[0])
             total += delivery
@@ -81,13 +83,35 @@ def convert_statistic(all_messages, start_date, end_date):
     total = '{0:,}'.format(round(sum(all_mess_total))).replace(',', ' ')
     total_sdek = '{0:,}'.format(round(sum(delivery_total))).replace(',', ' ')
     total_parts = '{0:,}'.format(round(sum(parts))).replace(',', ' ')
-    total_full = '{0:,}'.format(round(sum(all_mess_total)-sum(parts))).replace(',', ' ')
+    total_full = '{0:,}'.format(round(sum(all_mess_total) - sum(parts))).replace(',', ' ')
 
-    return f"Диапазон поиска: {start_date} - {end_date}\nНайдено заказов: {len(all_messages)}\nСумма за все заказы: {total}₽\n" \
+    return f"Диапазон поиска: {start_date} - {end_date}\n" \
+           f"Найдено заказов: {len(all_messages)}\n" \
+           f"Сумма за все заказы: {total}₽\n" \
            f"Сумма СДЕК: {total_sdek}₽. Количество доставок: {len(delivery_total)}\n" \
-           f"Сумма долями: {total_parts}₽. Количество долями: {len(parts)}\nСумма полной оплатой: {total_full}₽"
+           f"Сумма долями: {total_parts}₽. Количество долями: {len(parts)}\n" \
+           f"Сумма полной оплатой: {total_full}₽"
 
-def make_statistic(start_date, end_date=datetime.now()):
+
+def get_cities(all_messages):
+    cities = []
+    for message in all_messages:
+        address = re.search('RU: (.+?) Purchaser', message).group(1)
+        address = re.sub(r' Amount:.*', '', address)
+        address = re.sub(r' Comments:.*', '', address)
+        address = address.replace('Point: ', '').split(', ')
+        # pattern = re.compile(r'\d\.,\):')
+        address = [s for s in address if not re.search(r'[0-9,:.]', s) and not "ул " in s and not "проспект" in s and
+                   not "шоссе" in s and not "пр-т" in s and not "Рокоссовского" in s]
+        cities += address
+    counter = Counter(cities).most_common(5)
+    result = ''
+    for city, count in counter:
+        result += f'{city}: {count}\n'
+    return result
+
+
+def make_statistic(start_date, end_date=datetime.now(), by_cities=False):
     check_date = start_date - timedelta(days=1)
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
@@ -101,29 +125,19 @@ def make_statistic(start_date, end_date=datetime.now()):
     search_criteria = f'(FROM "{sender}" SINCE "{check_date.strftime("%d-%b-%Y")}" BEFORE "{(end_date + timedelta(days=1)).strftime("%d-%b-%Y")}")'
     status, message_uids = imap.uid('search', None, search_criteria)
     message_uids = str(message_uids[0])[2:-1].split()
-    print(message_uids)
+    # print(message_uids)
     # print(len(message_uids))
 
     start = time.time()
     all_messages = []
-    while True:
-        res, msg = imap.uid('fetch', message_uids[-1], '(RFC822)')
-        msg = email.message_from_bytes(msg[0][1])
-        letter_date = datetime(*email.utils.parsedate_tz(msg["Date"])[0:6])
-        if end_date.day == letter_date.day and letter_date.hour>=22:
-            message_uids.pop()
-        else: break
-    while True:
-        res, msg = imap.uid('fetch', message_uids[0], '(RFC822)')
-        msg = email.message_from_bytes(msg[0][1])
-        letter_date = datetime(*email.utils.parsedate_tz(msg["Date"])[0:6])
-        if check_date.day == letter_date.day and letter_date.hour<22:
-            message_uids.pop(0)
-        else: break
-    for message_uid in message_uids:
+    for i, message_uid in enumerate(message_uids):
         res, msg = imap.uid('fetch', message_uid, '(RFC822)')
         msg = email.message_from_bytes(msg[0][1])
 
+        letter_date = datetime(*email.utils.parsedate_tz(msg["Date"])[0:6])
+        if (end_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour >= 22) or \
+           (check_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour < 22):
+            continue
         # print(decode_header(msg["Subject"])[0][0].decode())
 
         # print(type(msg))
@@ -135,8 +149,10 @@ def make_statistic(start_date, end_date=datetime.now()):
     # print('\n'.join(all_messages))
     print("-------------Done in {:4}-------------\n".format(time.time() - start))
     imap.logout()
-    return convert_statistic(all_messages, start_date, end_date)
+    if not by_cities:
+        return convert_statistic(all_messages, start_date, end_date)
+    else:
+        return get_cities(all_messages)
 
-
-# if __name__ == '__main__':
-#     print(make_statistic(search_criteria))
+if __name__ == '__main__':
+    print(make_statistic(datetime(2022, 7, 1), by_cities=True))
