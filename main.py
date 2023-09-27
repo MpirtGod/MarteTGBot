@@ -105,7 +105,7 @@ def get_cities(all_messages):
                    not "шоссе" in s and not "пр-т" in s and not "Рокоссовского" in s]
         cities += address
     counter = Counter(cities).most_common(5)
-    result = ''
+    result = 'Статистика по городам, в которые чаще всего заказывают (Топ-5):\n'
     for city, count in counter:
         result += f'{city}: {count}\n'
     return result
