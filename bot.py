@@ -2,9 +2,10 @@ import re
 from time import sleep
 import telebot
 from telebot import types
-from config import TOKEN
+from config import TOKEN, known_usernames
 from main import make_statistic
 from datetime import datetime, timedelta
+from functools import wraps
 
 bot = telebot.TeleBot(token=TOKEN)
 
@@ -13,6 +14,30 @@ time_dict = {'сегодня': (datetime.now()),
              'месяц': datetime(datetime.now().year, datetime.now().month, 1),
              'время': datetime(2023, 7, 8),
              'заказывают': datetime(2023, 7, 8)}
+
+
+def is_known_username(username):
+    '''
+    Returns a boolean if the username is known in the user-list.
+    '''
+
+    return username in known_usernames
+
+
+def private_access():
+    """
+    Restrict access to the command to users allowed by the is_known_username function.
+    """
+    def deco_restrict(f):
+        @wraps(f)
+        def f_restrict(message, *args, **kwargs):
+            username = message.from_user.username
+            if is_known_username(username):
+                return f(message, *args, **kwargs)
+            else:
+                bot.send_message(message.chat.id, text=f'Твоего ника ({message.from_user.username}) нет в списке разрешенных пользователей. Доступ отклонен!')
+        return f_restrict  # true decorator
+    return deco_restrict
 
 
 def check_date(date_string):
@@ -25,6 +50,7 @@ def check_date(date_string):
 
 
 @bot.message_handler(commands=['start'])
+@private_access()
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     statistic_button = types.KeyboardButton('Статистика')
@@ -37,11 +63,13 @@ def start(message):
 
 
 @bot.message_handler(func=lambda message: message.text.lower() == 'старт' or message.text.lower() == 'привет')
+@private_access()
 def start_text(message):
     start(message)
 
 
 @bot.message_handler(commands=['help'])
+@private_access()
 def help(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     statistic_button = types.KeyboardButton('Статистика')
@@ -53,11 +81,13 @@ def help(message):
 
 
 @bot.message_handler(func=lambda message: message.text.lower() == 'помощь')
+@private_access()
 def help_text(message):
     help(message)
 
 
 @bot.message_handler(commands=['statistic'])
+@private_access()
 def statistics(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     statistic_day = types.KeyboardButton('Статистика за сегодня')
@@ -73,11 +103,13 @@ def statistics(message):
 
 
 @bot.message_handler(func=lambda message: message.text.lower() == 'статистика')
+@private_access()
 def statistics_text(message):
     statistics(message)
 
 
 @bot.message_handler(func=lambda message: message.text.lower() == 'назад')
+@private_access()
 def back(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     statistic_button = types.KeyboardButton('Статистика')
@@ -92,6 +124,7 @@ def back(message):
                                           message.text.lower() == 'статистика за рабочую неделю' or
                                           message.text.lower() == 'статистика за месяц' or
                                           message.text.lower() == 'статистика за все время')
+@private_access()
 def make_statistic_without_user_date(message):
     bot.send_message(message.chat.id, 'Загрузка...', parse_mode='html')
     start_date = time_dict[message.text.split(' ')[-1]]
@@ -110,6 +143,7 @@ def make_statistic_without_user_date(message):
 
 @bot.message_handler(func=lambda message: re.match(r'\d{2}\.\d{2}\.\d{4}', message.text) or
                                           re.match(r'\d{2}\.\d{2}\.\d{4}[-]\d{2}\.\d{2}\.\d{4}', message.text.replace(' ', '')))
+@private_access()
 def make_statistic_with_user_date(message):
     message_text = message.text.replace(' ', '').split('-')
     if (len(message_text) == 1 and check_date(message_text[0])) or \
@@ -137,6 +171,7 @@ def make_statistic_with_user_date(message):
 
 
 @bot.message_handler(func=lambda message: message.text.lower() == 'в какие города чаще заказывают')
+@private_access()
 def make_statitistic_by_cities(message):
     bot.send_message(message.chat.id, 'Загрузка...', parse_mode='html')
     start_date = time_dict[message.text.split(' ')[-1]]
@@ -154,6 +189,7 @@ def make_statitistic_by_cities(message):
 
 
 @bot.message_handler()
+@private_access()
 def get_user_text(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     statistic_button = types.KeyboardButton('Статистика')
