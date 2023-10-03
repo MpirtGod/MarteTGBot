@@ -66,6 +66,7 @@ def convert_statistic(all_messages, start_date, end_date):
     all_mess_total = []
     delivery_total = []
     parts = []
+    delivery_parts = []
     for message in all_messages:
         total = float(re.search('Sub total: (.+?) RUB', message).group(1))
 
@@ -74,6 +75,8 @@ def convert_statistic(all_messages, start_date, end_date):
             delivery = float(re.findall("[+-]?\d+\.\d+", delivery)[0])
             total += delivery
             delivery_total.append(delivery)
+            if 'Долями' in message:
+                delivery_parts.append(delivery)
         all_mess_total.append(total)
         if 'Долями' in message:
             parts.append(total)
@@ -84,13 +87,25 @@ def convert_statistic(all_messages, start_date, end_date):
     total_sdek = '{0:,}'.format(round(sum(delivery_total))).replace(',', ' ')
     total_parts = '{0:,}'.format(round(sum(parts))).replace(',', ' ')
     total_full = '{0:,}'.format(round(sum(all_mess_total) - sum(parts))).replace(',', ' ')
+    delivery_parts_sum = '{0:,}'.format(round(sum(delivery_parts))).replace(',', ' ')
+    delivery_full_sum = '{0:,}'.format(round(sum(delivery_total)-sum(delivery_parts))).replace(',', ' ')
 
-    return f"Диапазон поиска: {start_date} - {end_date}\n" \
+    return f"Диапазон поиска:\n" \
+           f"{start_date} - {end_date}\n\n" \
            f"Найдено заказов: {len(all_messages)}\n" \
-           f"Сумма за все заказы: {total}₽\n" \
-           f"Сумма СДЕК: {total_sdek}₽. Количество доставок: {len(delivery_total)}\n" \
-           f"Сумма долями: {total_parts}₽. Количество долями: {len(parts)}\n" \
-           f"Сумма полной оплатой: {total_full}₽"
+           f"Сумма за все заказы: {total}₽\n\n" \
+           f"Сумма чеков долями: {total_parts}₽\n" \
+           f"Количество чеков долями: {len(parts)}\n\n" \
+           f"Сумма полной оплаты: {total_full}₽\n" \
+           f"Количество полной оплаты: {len(all_messages) - len(parts)}\n\n" \
+           f"Количество доставок всего: {len(all_messages)}\n" \
+           f"Количество доставок по Екатеринбургу: {len(all_messages) - len(delivery_total)}\n" \
+           f"Количество доставок в другие города: {len(delivery_total)}\n\n" \
+           f"Сумма СДЕК: {total_sdek}₽\n" \
+           f"Сумма СДЕК долями: {delivery_parts_sum}₽\n" \
+           f"Количество СДЕК долями: {len(delivery_parts_sum)}\n" \
+           f"Сумма СДЕК полной оплаты: {delivery_full_sum}₽\n" \
+           f"Количество СДЕК полной оплаты: {len(delivery_total) - len(delivery_parts_sum)}"
 
 
 def get_cities(all_messages):
@@ -100,7 +115,6 @@ def get_cities(all_messages):
         address = re.sub(r' Amount:.*', '', address)
         address = re.sub(r' Comments:.*', '', address)
         address = address.replace('Point: ', '').split(', ')
-        # pattern = re.compile(r'\d\.,\):')
         address = [s for s in address if not re.search(r'[0-9,:.]', s) and not "ул " in s and not "проспект" in s and
                    not "шоссе" in s and not "пр-т" in s and not "Рокоссовского" in s]
         cities += address
