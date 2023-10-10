@@ -133,7 +133,7 @@ def get_cities(all_messages):
     return result
 
 
-def make_statistic(start_date, end_date=datetime.now(), by_cities=False):
+def make_statistic(start_date, end_date, by_cities=False):
     check_date = start_date - timedelta(days=1)
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
@@ -175,6 +175,3 @@ def make_statistic(start_date, end_date=datetime.now(), by_cities=False):
         return convert_statistic(all_messages, start_date, end_date)
     else:
         return get_cities(all_messages)
-
-if __name__ == '__main__':
-    print(make_statistic(datetime(2022, 7, 1), by_cities=True))

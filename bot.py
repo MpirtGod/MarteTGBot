@@ -9,12 +9,6 @@ from functools import wraps
 
 bot = telebot.TeleBot(token=TOKEN)
 
-time_dict = {'сегодня': (datetime.now()),
-             'неделю': (datetime.today() - timedelta(days=datetime.today().weekday() % 7)),
-             'месяц': datetime(datetime.now().year, datetime.now().month, 1),
-             'время': datetime(2023, 7, 8),
-             'заказывают': datetime(2023, 7, 8)}
-
 
 def is_known_username(username):
     '''
@@ -126,10 +120,14 @@ def back(message):
                                           message.text.lower() == 'статистика за все время')
 @private_access()
 def make_statistic_without_user_date(message):
+    time_dict = {'сегодня': (datetime.now()),
+                 'неделю': (datetime.today() - timedelta(days=datetime.today().weekday() % 7)),
+                 'месяц': datetime(datetime.now().year, datetime.now().month, 1),
+                 'время': datetime(2023, 7, 8)}
     bot.send_message(message.chat.id, 'Загрузка...', parse_mode='html')
     start_date = time_dict[message.text.split(' ')[-1]]
 
-    statistic = make_statistic(start_date=start_date)
+    statistic = make_statistic(start_date=start_date, end_date=datetime.now())
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     statistic_button = types.KeyboardButton('Статистика')
@@ -174,9 +172,9 @@ def make_statistic_with_user_date(message):
 @private_access()
 def make_statitistic_by_cities(message):
     bot.send_message(message.chat.id, 'Загрузка...', parse_mode='html')
-    start_date = time_dict[message.text.split(' ')[-1]]
+    start_date = datetime(2023, 7, 8)
 
-    statistic = make_statistic(start_date=start_date, by_cities=True)
+    statistic = make_statistic(start_date=start_date, end_date=datetime.now(), by_cities=True)
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     statistic_button = types.KeyboardButton('Статистика')
