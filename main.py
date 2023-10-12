@@ -8,7 +8,10 @@ from config import mail_pass, username, imap_server, search_folder
 from datetime import datetime, timedelta
 import quopri
 from collections import Counter
+import multiprocessing
+from multiprocessing.pool import ThreadPool
 
+global all_messages
 
 def get_letter_text_from_html(body):
     try:
@@ -133,44 +136,56 @@ def get_cities(all_messages):
     return result
 
 
-def make_statistic(start_date, end_date, by_cities=False):
-    check_date = start_date - timedelta(days=1)
+def pull_message(message_uid, check_date, end_date):
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
+    imap.select(search_folder)
+
+    res, msg = imap.uid('fetch', message_uid, '(RFC822)')
+    msg = email.message_from_bytes(msg[0][1])
+
+    letter_date = datetime(*email.utils.parsedate_tz(msg["Date"])[0:6])
+    if not (end_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour >= 22) and \
+       not (check_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour < 22):
+        all_messages.append(get_letter_text(msg))
+    # print(decode_header(msg["Subject"])[0][0].decode())
+
+    # print(type(msg))
+
+    # for part in msg.walk():
+    #     print(part.get_content_type())
+    imap.logout()
+
+
+def make_statistic(start_date, end_date, by_cities=False):
+    global all_messages
+    check_date = start_date - timedelta(days=1)
 
     # resp_code, directories = imap.list(directory="[Mail]")
     # for directory in directories:
     #     print(directory.decode())
 
-    imap.select(search_folder)
     sender = 'noreply@tilda.ws'
     search_criteria = f'(FROM "{sender}" SINCE "{check_date.strftime("%d-%b-%Y")}" BEFORE "{(end_date + timedelta(days=1)).strftime("%d-%b-%Y")}")'
+    imap = imaplib.IMAP4_SSL(imap_server)
+    imap.login(username, mail_pass)
+    imap.select(search_folder)
     status, message_uids = imap.uid('search', None, search_criteria)
     message_uids = str(message_uids[0])[2:-1].split()
     # print(message_uids)
     # print(len(message_uids))
+    imap.logout()
 
     start = time.time()
     all_messages = []
-    for i, message_uid in enumerate(message_uids):
-        res, msg = imap.uid('fetch', message_uid, '(RFC822)')
-        msg = email.message_from_bytes(msg[0][1])
-
-        letter_date = datetime(*email.utils.parsedate_tz(msg["Date"])[0:6])
-        if (end_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour >= 22) or \
-           (check_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour < 22):
-            continue
-        # print(decode_header(msg["Subject"])[0][0].decode())
-
-        # print(type(msg))
-
-        # for part in msg.walk():
-        #     print(part.get_content_type())
-        all_messages.append(get_letter_text(msg))
+    with ThreadPool(processes=multiprocessing.cpu_count() * 10) as pool:
+        args = []
+        for message_uid in message_uids:
+            args.append((message_uid, check_date, end_date))
+        pool.starmap(pull_message, args)
 
     # print('\n'.join(all_messages))
     print("-------------Done in {:4}-------------\n".format(time.time() - start))
-    imap.logout()
     if not by_cities:
         return convert_statistic(all_messages, start_date, end_date)
     else:
