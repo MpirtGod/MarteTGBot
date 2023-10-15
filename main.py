@@ -178,7 +178,7 @@ def make_statistic(start_date, end_date, by_cities=False):
 
     start = time.time()
     all_messages = []
-    with ThreadPool(processes=multiprocessing.cpu_count() * 10) as pool:
+    with ThreadPool(processes=multiprocessing.cpu_count() * 30) as pool:
         args = []
         for message_uid in message_uids:
             args.append((message_uid, check_date, end_date))
