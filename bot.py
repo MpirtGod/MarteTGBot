@@ -11,19 +11,38 @@ bot = telebot.TeleBot(token=TOKEN)
 
 last_message_is_city_statistic = False
 
+
 def is_known_username(username):
-    '''
-    Returns a boolean if the username is known in the user-list.
-    '''
+    """
+    Проверяет, есть ли указанное имя пользователя в списке известных.
+
+    Parameters
+    ----------
+    username : str
+        Имя пользователя для проверки.
+
+    Returns
+    -------
+    bool
+        True, если имя пользователя известно, False в противном случае.
+    """
 
     return username in known_usernames
 
 
 def private_access():
     """
-    Restrict access to the command to users allowed by the is_known_username function.
+    Декоратор, ограничивающий доступ к команде для пользователей, разрешенных функцией is_known_username.
     """
     def deco_restrict(f):
+        """
+        Функция-декоратор, проверяющая доступ пользователя к команде.
+
+        Returns
+        -------
+        Значение, возвращаемое оригинальной функцией, если пользователь разрешен.
+        Сообщение об отклонении доступа, если пользователь не разрешен.
+        """
         @wraps(f)
         def f_restrict(message, *args, **kwargs):
             username = message.from_user.username
@@ -36,9 +55,24 @@ def private_access():
 
 
 def check_date(date_string):
+    """
+    Проверяет правильный ли формат даты и существует ли такая дата.
+
+    Parameters
+    ----------
+    date_string : str
+        Дата в формате dd.mm.yyyy
+
+    Returns
+    -------
+    bool
+        True, если дата имеет правильный формат и существует; False в противном случае.
+    """
     try:
         # Проверка формата даты
         datetime.strptime(date_string, '%d.%m.%Y')
+        if datetime.strptime(date_string, '%d.%m.%Y') > datetime.now():
+            return False
         return True
     except ValueError:
         return False
@@ -211,6 +245,6 @@ def get_user_text(message):
 while True:
     try:
         bot.polling(none_stop=True)
-    except Exception as _ex:
+    except Exception as _ex: #Предотвращения остановки работы бота при неудачной попытке подключения к серверам Telegram.
         print(_ex)
         sleep(15)

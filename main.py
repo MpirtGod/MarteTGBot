@@ -14,18 +14,47 @@ from translate import Translator
 
 global all_messages
 
+
 def get_letter_text_from_html(body):
+    """
+    Извлекает текст из HTML-тела письма.
+
+    Parameters
+    ----------
+    body : str
+        HTML-текст тела письма.
+
+    Returns
+    -------
+    str
+        Текст письма, извлеченный из HTML.
+    bool
+        False в случае ошибки при извлечении текста из HTML.
+    """
     try:
         soup = BeautifulSoup(body, "html.parser")
         text = soup.get_text()
 
         return text.replace("\xa0", "")
-    except (Exception) as exp:
-        print("text ftom html err ", exp)
+    except Exception as exp:
+        print("text from html err ", exp)
         return False
 
 
 def letter_type(part):
+    """
+    Определяет тип части (attachment) письма и возвращает соответствующее содержимое.
+
+    Parameters
+    ----------
+    part : email.message.Message
+        Часть письма.
+
+    Returns
+    -------
+    str
+        Содержимое части письма в текстовом формате.
+    """
     if part["Content-Transfer-Encoding"] in (None, "7bit", "8bit", "binary"):
         return part.get_payload()
     elif part["Content-Transfer-Encoding"] == "base64":
@@ -39,6 +68,19 @@ def letter_type(part):
 
 
 def extract_text(msg):
+    """
+    Извлекает текст из части письма.
+
+    Parameters
+    ----------
+    msg : email.message.Message
+        Часть письма.
+
+    Returns
+    -------
+    str
+        Извлеченный текст из части письма.
+    """
     count = 0
     if msg.get_content_maintype() == "text" and count == 0:
         extract_part = letter_type(msg)
@@ -56,6 +98,19 @@ def extract_text(msg):
 
 
 def get_letter_text(msg):
+    """
+    Извлекает текст из всего письма, включая все его части.
+
+    Parameters
+    ----------
+    msg : email.message.Message
+        Письмо.
+
+    Returns
+    -------
+    str
+        Извлеченный текст из всего письма.
+    """
     if msg.is_multipart():
         str = ''
         for part in msg.walk():
@@ -67,6 +122,24 @@ def get_letter_text(msg):
 
 
 def convert_statistic(all_messages, start_date, end_date):
+    """
+    Высчитывает и преобразует статистику по заказам в удобочитаемый текст.
+
+    Parameters
+    ----------
+    all_messages : list of str
+        Список сообщений с информацией о заказах.
+    start_date : datetime
+        Начальная дата периода статистики.
+    end_date : datetime
+        Конечная дата периода статистики.
+
+    Returns
+    -------
+    str
+        Текстовое представление статистики по заказам.
+    """
+
     all_mess_total = []
     delivery_total = []
     parts = []
@@ -79,7 +152,7 @@ def convert_statistic(all_messages, start_date, end_date):
             try:
                 delivery = re.findall("[+-]?\d+\.\d+", delivery)
                 delivery = delivery[0]
-            except (Exception) as exp:
+            except (Exception) as exp: #Обработка бесплатной доставки
                 delivery = 0
             delivery = float(delivery)
             total += delivery
@@ -102,6 +175,8 @@ def convert_statistic(all_messages, start_date, end_date):
     len_delivery_parts = len(delivery_parts)
     delivery_parts = round(sum(delivery_parts))
     ekb_delivery = len(all_messages) - len_delivery_total - free_delivery
+
+    #Преобразование чисел в нужный формат
 
     total = '{0:,}'.format(all_mess_total).replace(',', ' ')
     total_sdek = '{0:,}'.format(delivery_total).replace(',', ' ')
@@ -130,6 +205,23 @@ def convert_statistic(all_messages, start_date, end_date):
 
 
 def get_cities_statistic(all_messages, start_date, end_date):
+    """
+    Высчитывает и преобразует статистику по городам в удобочитаемый текст.
+
+    Parameters
+    ----------
+    all_messages : list of str
+        Список сообщений с информацией о заказах.
+    start_date : datetime
+        Начальная дата периода статистики.
+    end_date : datetime
+        Конечная дата периода статистики.
+
+    Returns
+    -------
+    str
+        Текстовое представление статистики по городам.
+    """
     cities = []
     all_cities_total = 0
     all_cities_delivery = 0
@@ -181,7 +273,9 @@ def get_cities_statistic(all_messages, start_date, end_date):
         city_delivery = round(delivery_by_cities[city])
         city_statistic.append((city, count, city_total, city_delivery))
 
-    sorted_city_statistic = sorted(city_statistic, key=lambda x: (-x[1], -x[2]))
+    sorted_city_statistic = sorted(city_statistic, key=lambda x: (-x[1], -x[2])) #Сортировка по количеству заказов, второстепенно по процентам
+
+    #Преобразование чисел в нужный формат
 
     cities_total = '{0:,}'.format(round(all_cities_total)).replace(',', ' ')
     city_delivery = '{0:,}'.format(round(all_cities_delivery)).replace(',', ' ')
@@ -206,6 +300,23 @@ def get_cities_statistic(all_messages, start_date, end_date):
 
 
 def pull_message(message_uid, check_date, end_date):
+    """
+    Получает текст сообщения по его UID из почтового ящика.
+
+    Parameters
+    ----------
+    message_uid : str
+        Уникальный идентификатор сообщения.
+    check_date : datetime
+        Дата начала периода для фильтрации сообщений.
+    end_date : datetime
+        Дата конца периода для фильтрации сообщений.
+
+    Returns
+    -------
+    None
+        Сообщение добавлено в глобальный список all_messages, если соответствует условиям фильтрации.
+    """
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
     imap.select(search_folder)
@@ -215,7 +326,7 @@ def pull_message(message_uid, check_date, end_date):
 
     letter_date = datetime(*email.utils.parsedate_tz(msg["Date"])[0:6])
     if not (end_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour >= 22) and \
-       not (check_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour < 22):
+       not (check_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour < 22):  # Корректировка даты с учетом часового поиса. Изначально - МСК
         all_messages.append(get_letter_text(msg))
     # print(decode_header(msg["Subject"])[0][0].decode())
 
@@ -227,6 +338,24 @@ def pull_message(message_uid, check_date, end_date):
 
 
 def make_statistic(start_date, end_date, by_cities=False):
+    """
+    Создает статистику по заказам за указанный период.
+
+    Parameters
+    ----------
+    start_date : datetime
+        Начальная дата периода статистики.
+    end_date : datetime
+        Конечная дата периода статистики.
+    by_cities : bool
+        Флаг, указывающий на необходимость создания статистики по городам.
+        По умолчанию False.
+
+    Returns
+    -------
+    str
+        Текстовое представление статистики по заказам или по городам.
+    """
     global all_messages
     check_date = start_date - timedelta(days=1)
 
