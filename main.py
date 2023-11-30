@@ -10,21 +10,51 @@ import quopri
 from collections import Counter
 import multiprocessing
 from multiprocessing.pool import ThreadPool
+from translate import Translator
 
 global all_messages
 
+
 def get_letter_text_from_html(body):
+    """
+    Извлекает текст из HTML-тела письма.
+
+    Parameters
+    ----------
+    body : str
+        HTML-текст тела письма.
+
+    Returns
+    -------
+    str
+        Текст письма, извлеченный из HTML.
+    bool
+        False в случае ошибки при извлечении текста из HTML.
+    """
     try:
         soup = BeautifulSoup(body, "html.parser")
         text = soup.get_text()
 
         return text.replace("\xa0", "")
-    except (Exception) as exp:
-        print("text ftom html err ", exp)
+    except Exception as exp:
+        print("text from html err ", exp)
         return False
 
 
 def letter_type(part):
+    """
+    Определяет тип части (attachment) письма и возвращает соответствующее содержимое.
+
+    Parameters
+    ----------
+    part : email.message.Message
+        Часть письма.
+
+    Returns
+    -------
+    str
+        Содержимое части письма в текстовом формате.
+    """
     if part["Content-Transfer-Encoding"] in (None, "7bit", "8bit", "binary"):
         return part.get_payload()
     elif part["Content-Transfer-Encoding"] == "base64":
@@ -38,6 +68,19 @@ def letter_type(part):
 
 
 def extract_text(msg):
+    """
+    Извлекает текст из части письма.
+
+    Parameters
+    ----------
+    msg : email.message.Message
+        Часть письма.
+
+    Returns
+    -------
+    str
+        Извлеченный текст из части письма.
+    """
     count = 0
     if msg.get_content_maintype() == "text" and count == 0:
         extract_part = letter_type(msg)
@@ -55,6 +98,19 @@ def extract_text(msg):
 
 
 def get_letter_text(msg):
+    """
+    Извлекает текст из всего письма, включая все его части.
+
+    Parameters
+    ----------
+    msg : email.message.Message
+        Письмо.
+
+    Returns
+    -------
+    str
+        Извлеченный текст из всего письма.
+    """
     if msg.is_multipart():
         str = ''
         for part in msg.walk():
@@ -66,6 +122,24 @@ def get_letter_text(msg):
 
 
 def convert_statistic(all_messages, start_date, end_date):
+    """
+    Высчитывает и преобразует статистику по заказам в удобочитаемый текст.
+
+    Parameters
+    ----------
+    all_messages : list of str
+        Список сообщений с информацией о заказах.
+    start_date : datetime
+        Начальная дата периода статистики.
+    end_date : datetime
+        Конечная дата периода статистики.
+
+    Returns
+    -------
+    str
+        Текстовое представление статистики по заказам.
+    """
+
     all_mess_total = []
     delivery_total = []
     parts = []
@@ -78,7 +152,7 @@ def convert_statistic(all_messages, start_date, end_date):
             try:
                 delivery = re.findall("[+-]?\d+\.\d+", delivery)
                 delivery = delivery[0]
-            except (Exception) as exp:
+            except (Exception) as exp: #Обработка бесплатной доставки
                 delivery = 0
             delivery = float(delivery)
             total += delivery
@@ -93,50 +167,156 @@ def convert_statistic(all_messages, start_date, end_date):
 
     start_date = start_date.strftime('%d.%m.%Y')
     end_date = end_date.strftime('%d.%m.%Y')
-    total = '{0:,}'.format(round(sum(all_mess_total))).replace(',', ' ')
-    total_sdek = '{0:,}'.format(round(sum(delivery_total))).replace(',', ' ')
-    total_parts = '{0:,}'.format(round(sum(parts))).replace(',', ' ')
-    total_full = '{0:,}'.format(round(sum(all_mess_total) - sum(parts))).replace(',', ' ')
-    delivery_parts_sum = '{0:,}'.format(round(sum(delivery_parts))).replace(',', ' ')
-    delivery_full_sum = '{0:,}'.format(round(sum(delivery_total)-sum(delivery_parts))).replace(',', ' ')
+    all_mess_total = round(sum(all_mess_total))
+    len_delivery_total = len(delivery_total)
+    delivery_total = round(sum(delivery_total))
+    len_parts = len(parts)
+    parts = round(sum(parts))
+    len_delivery_parts = len(delivery_parts)
+    delivery_parts = round(sum(delivery_parts))
+    ekb_delivery = len(all_messages) - len_delivery_total - free_delivery
+
+    #Преобразование чисел в нужный формат
+
+    total = '{0:,}'.format(all_mess_total).replace(',', ' ')
+    total_sdek = '{0:,}'.format(delivery_total).replace(',', ' ')
+    total_parts = '{0:,}'.format(parts).replace(',', ' ')
+    total_full = '{0:,}'.format(round(all_mess_total - parts)).replace(',', ' ')
+    delivery_parts_sum = '{0:,}'.format(delivery_parts).replace(',', ' ')
+    delivery_full_sum = '{0:,}'.format(round(delivery_total-delivery_parts)).replace(',', ' ')
 
     return f"Диапазон поиска:\n" \
            f"{start_date} - {end_date}\n\n" \
            f"Найдено заказов: {len(all_messages)}\n" \
            f"Сумма за все заказы: {total}₽\n\n" \
-           f"Сумма чеков долями: {total_parts}₽\n" \
-           f"Количество чеков долями: {len(parts)}\n\n" \
-           f"Сумма полной оплаты: {total_full}₽\n" \
-           f"Количество полной оплаты: {len(all_messages) - len(parts)}\n\n" \
+           f"Сумма чеков долями: {total_parts}₽ - {round(parts/all_mess_total*100,2)}%\n" \
+           f"Количество чеков долями: {len_parts} - {round(len_parts/len(all_messages)*100,2)}%\n\n" \
+           f"Сумма полной оплаты: {total_full}₽ - {round(100 - parts/all_mess_total*100,2)}%\n" \
+           f"Количество полной оплаты: {len(all_messages) - len_parts} - {round(100 - len_parts/len(all_messages)*100,2)}%\n\n" \
            f"Количество доставок всего: {len(all_messages)}\n" \
-           f"Количество доставок по Екатеринбургу: {len(all_messages) - len(delivery_total) - free_delivery}\n" \
-           f"Количество бесплатных доставок: {free_delivery}\n" \
-           f"Количество доставок в другие города: {len(delivery_total)}\n\n" \
-           f"Сумма СДЕК: {total_sdek}₽\n" \
-           f"Сумма СДЕК долями: {delivery_parts_sum}₽\n" \
-           f"Количество СДЕК долями: {len(delivery_parts)}\n" \
-           f"Сумма СДЕК полной оплаты: {delivery_full_sum}₽\n" \
-           f"Количество СДЕК полной оплаты: {len(delivery_total) - len(delivery_parts)}"
+           f"Количество доставок по Екатеринбургу: {ekb_delivery} - {round(ekb_delivery/len(all_messages)*100,2)}%\n" \
+           f"Количество бесплатных доставок: {free_delivery} - {round(free_delivery/len(all_messages)*100,2)}%\n" \
+           f"Количество доставок в другие города: {len_delivery_total} - {round(len_delivery_total/len(all_messages)*100,2)}%\n\n" \
+           f"Сумма СДЭК: {total_sdek}₽ - {round(delivery_total/all_mess_total*100,2)}%\n" \
+           f"Сумма СДЭК долями: {delivery_parts_sum}₽ - {round(delivery_parts/delivery_total*100,2)}%\n" \
+           f"Количество СДЭК долями: {len_delivery_parts} - {round(len_delivery_parts/len_delivery_total*100,2)}%\n" \
+           f"Сумма СДЭК полной оплаты: {delivery_full_sum}₽ - {round(100 - delivery_parts/delivery_total*100,2)}%\n" \
+           f"Количество СДЭК полной оплаты: {len_delivery_total - len_delivery_parts} - {round((len_delivery_total - len_delivery_parts)/len_delivery_total*100,2)}%"
 
 
-def get_cities(all_messages):
+def get_cities_statistic(all_messages, start_date, end_date):
+    """
+    Высчитывает и преобразует статистику по городам в удобочитаемый текст.
+
+    Parameters
+    ----------
+    all_messages : list of str
+        Список сообщений с информацией о заказах.
+    start_date : datetime
+        Начальная дата периода статистики.
+    end_date : datetime
+        Конечная дата периода статистики.
+
+    Returns
+    -------
+    str
+        Текстовое представление статистики по городам.
+    """
     cities = []
+    all_cities_total = 0
+    all_cities_delivery = 0
+    total_by_cities = {}
+    delivery_by_cities = {}
     for message in all_messages:
         address = re.search('RU: (.+?) Purchaser', message).group(1)
         address = re.sub(r' Amount:.*', '', address)
         address = re.sub(r' Comments:.*', '', address)
-        address = address.replace('Point: ', '').split(', ')
-        address = [s for s in address if not re.search(r'[0-9,:.]', s) and not "ул " in s and not "проспект" in s and
-                   not "шоссе" in s and not "пр-т" in s and not "Рокоссовского" in s]
-        cities += address
-    counter = Counter(cities).most_common(5)
-    result = 'Статистика по городам, в которые чаще всего заказывают (Топ-5):\n'
+        address = address.split(', ')
+        if "Point" in address[0]:
+            city = address[-1]
+        else:
+            city = address[1]
+        translator = Translator(from_lang="English", to_lang="russian")
+        if re.search('[a-zA-Z]', city):
+            try:
+                city = translator.translate(city)
+                city = re.sub(r'[^А-Яа-я\-\s]', '', city)
+            except Exception as _ex:
+                pass
+        cities.append(city)
+
+        total = float(re.search('Sub total: (.+?) RUB', message).group(1))
+        if 'Екатеринбург' not in message:
+            delivery = re.search('Delivery: (.+?) Payment', message).group(1)
+            try:
+                delivery = re.findall("[+-]?\d+\.\d+", delivery)
+                delivery = delivery[0]
+            except (Exception) as exp:
+                delivery = 0
+            delivery = float(delivery)
+            total += delivery
+        else: delivery = 0
+        delivery_by_cities.setdefault(city, 0)
+        delivery_by_cities[city] += delivery
+        all_cities_delivery += delivery
+
+        total_by_cities.setdefault(city, 0)
+        total_by_cities[city] += total
+        all_cities_total += total
+
+    start_date = start_date.strftime('%d.%m.%Y')
+    end_date = end_date.strftime('%d.%m.%Y')
+    counter = Counter(cities).most_common()
+    city_statistic = []
     for city, count in counter:
-        result += f'{city}: {count}\n'
+        city_total = round(total_by_cities[city])
+        city_delivery = round(delivery_by_cities[city])
+        city_statistic.append((city, count, city_total, city_delivery))
+
+    sorted_city_statistic = sorted(city_statistic, key=lambda x: (-x[1], -x[2])) #Сортировка по количеству заказов, второстепенно по процентам
+
+    #Преобразование чисел в нужный формат
+
+    cities_total = '{0:,}'.format(round(all_cities_total)).replace(',', ' ')
+    city_delivery = '{0:,}'.format(round(all_cities_delivery)).replace(',', ' ')
+
+    result = f"Диапазон поиска:\n" \
+             f"{start_date} - {end_date}\n\n" \
+             f'Найдено заказов: {len(cities)}\n' \
+             f'Сумма за все заказы: {cities_total}₽ (С учетом доставки)\n' \
+             f'Сумма доставки за все заказы: {city_delivery}₽\n\n' \
+             f'<b>Статистика по городам, в которые чаще всего заказывают (Топ-10):</b>\n\n'
+    i = 0
+    for city in sorted_city_statistic:
+        if i == 10:
+            break
+        city_percent = round(total_by_cities[city[0]]/all_cities_total*100, 2)
+        city_delivery_percent = round(delivery_by_cities[city[0]]/all_cities_delivery * 100, 2)
+        city_sales = "{0:,}".format(round(city[2])).replace(",", " ")
+        city_delivery = "{0:,}".format(round(city[3])).replace(",", " ")
+        result += f'{city[0]}: {city[1]} ({city_sales}₽) - {city_percent}%\nСумма доставки: {city_delivery}₽ - {city_delivery_percent}%\n\n'
+        i+=1
     return result
 
 
 def pull_message(message_uid, check_date, end_date):
+    """
+    Получает текст сообщения по его UID из почтового ящика.
+
+    Parameters
+    ----------
+    message_uid : str
+        Уникальный идентификатор сообщения.
+    check_date : datetime
+        Дата начала периода для фильтрации сообщений.
+    end_date : datetime
+        Дата конца периода для фильтрации сообщений.
+
+    Returns
+    -------
+    None
+        Сообщение добавлено в глобальный список all_messages, если соответствует условиям фильтрации.
+    """
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
     imap.select(search_folder)
@@ -146,7 +326,7 @@ def pull_message(message_uid, check_date, end_date):
 
     letter_date = datetime(*email.utils.parsedate_tz(msg["Date"])[0:6])
     if not (end_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour >= 22) and \
-       not (check_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour < 22):
+       not (check_date.strftime("%d-%b-%Y") == letter_date.strftime("%d-%b-%Y") and letter_date.hour < 22):  # Корректировка даты с учетом часового поиса. Изначально - МСК
         all_messages.append(get_letter_text(msg))
     # print(decode_header(msg["Subject"])[0][0].decode())
 
@@ -158,6 +338,24 @@ def pull_message(message_uid, check_date, end_date):
 
 
 def make_statistic(start_date, end_date, by_cities=False):
+    """
+    Создает статистику по заказам за указанный период.
+
+    Parameters
+    ----------
+    start_date : datetime
+        Начальная дата периода статистики.
+    end_date : datetime
+        Конечная дата периода статистики.
+    by_cities : bool
+        Флаг, указывающий на необходимость создания статистики по городам.
+        По умолчанию False.
+
+    Returns
+    -------
+    str
+        Текстовое представление статистики по заказам или по городам.
+    """
     global all_messages
     check_date = start_date - timedelta(days=1)
 
@@ -189,4 +387,4 @@ def make_statistic(start_date, end_date, by_cities=False):
     if not by_cities:
         return convert_statistic(all_messages, start_date, end_date)
     else:
-        return get_cities(all_messages)
+        return get_cities_statistic(all_messages, start_date, end_date)
