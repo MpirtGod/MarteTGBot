@@ -201,7 +201,10 @@ def convert_statistic(all_messages, start_date, end_date):
            f"Сумма СДЭК долями: {delivery_parts_sum}₽ - {round(delivery_parts/delivery_total*100,2)}%\n" \
            f"Количество СДЭК долями: {len_delivery_parts} - {round(len_delivery_parts/len_delivery_total*100,2)}%\n" \
            f"Сумма СДЭК полной оплаты: {delivery_full_sum}₽ - {round(100 - delivery_parts/delivery_total*100,2)}%\n" \
-           f"Количество СДЭК полной оплаты: {len_delivery_total - len_delivery_parts} - {round((len_delivery_total - len_delivery_parts)/len_delivery_total*100,2)}%"
+           f"Количество СДЭК полной оплаты: {len_delivery_total - len_delivery_parts} - {round((len_delivery_total - len_delivery_parts)/len_delivery_total*100,2)}%" \
+           if all_mess_total != 0 else f"Диапазон поиска:\n" \
+           f"{start_date} - {end_date}\n\n" \
+           f"Найдено заказов: 0\n"
 
 
 def get_cities_statistic(all_messages, start_date, end_date):
@@ -364,12 +367,19 @@ def make_statistic(start_date, end_date, by_cities=False):
     #     print(directory.decode())
 
     sender = 'noreply@tilda.ws'
-    search_criteria = f'(FROM "{sender}" SINCE "{check_date.strftime("%d-%b-%Y")}" BEFORE "{(end_date + timedelta(days=1)).strftime("%d-%b-%Y")}")'
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
     imap.select(search_folder)
-    status, message_uids = imap.uid('search', None, search_criteria)
-    message_uids = str(message_uids[0])[2:-1].split()
+
+    # Почему-то в один момент imaplib перестал искать письма при совместном поиске по дате и отправителю, пришлось разбить на два отдельных
+    search_criteria_by_date = f'(SINCE "{check_date.strftime("%d-%b-%Y")}" BEFORE "{(end_date + timedelta(days=1)).strftime("%d-%b-%Y")}")'
+    status, message_uids_by_date = imap.uid('search', None, search_criteria_by_date)
+    message_uids_by_date = str(message_uids_by_date[0])[2:-1].split()
+
+    search_criteria_by_sender = f'(FROM "{sender}")'
+    status, message_uids_by_sender = imap.uid('search', None, search_criteria_by_sender)
+    message_uids_by_sender = str(message_uids_by_sender[0])[2:-1].split()
+    message_uids = list(set(message_uids_by_date).intersection(message_uids_by_sender))
     # print(message_uids)
     # print(len(message_uids))
     imap.logout()
