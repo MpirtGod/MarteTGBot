@@ -184,6 +184,7 @@ def make_statistic_cities(message):
                  'месяц': datetime(datetime.now().year, datetime.now().month, 1),
                  'время': datetime(2023, 7, 8)}
     bot.send_message(message.chat.id, 'Загрузка...', parse_mode='html')
+    print('send_message')
     start_date = time_dict[message.text.split(' ')[-1]]
 
     statistic = make_statistic(start_date=start_date, end_date=datetime.now(), by_cities=last_message_is_city_statistic)
