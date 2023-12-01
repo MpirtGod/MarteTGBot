@@ -361,7 +361,7 @@ def make_statistic(start_date, end_date, by_cities=False):
     """
     global all_messages
     check_date = start_date - timedelta(days=1)
-
+    print('Вход в make_statistic')
     # resp_code, directories = imap.list(directory="[Mail]")
     # for directory in directories:
     #     print(directory.decode())
@@ -370,7 +370,7 @@ def make_statistic(start_date, end_date, by_cities=False):
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, mail_pass)
     imap.select(search_folder)
-
+    print("Подключен к серверу")
     # Почему-то в один момент imaplib перестал искать письма при совместном поиске по дате и отправителю, пришлось разбить на два отдельных
     search_criteria_by_date = f'(SINCE "{check_date.strftime("%d-%b-%Y")}" BEFORE "{(end_date + timedelta(days=1)).strftime("%d-%b-%Y")}")'
     status, message_uids_by_date = imap.uid('search', None, search_criteria_by_date)
@@ -380,6 +380,7 @@ def make_statistic(start_date, end_date, by_cities=False):
     status, message_uids_by_sender = imap.uid('search', None, search_criteria_by_sender)
     message_uids_by_sender = str(message_uids_by_sender[0])[2:-1].split()
     message_uids = list(set(message_uids_by_date).intersection(message_uids_by_sender))
+    print(f'message_uids: {message_uids}')
     # print(message_uids)
     # print(len(message_uids))
     imap.logout()
