@@ -185,26 +185,31 @@ def convert_statistic(all_messages, start_date, end_date):
     delivery_parts_sum = '{0:,}'.format(delivery_parts).replace(',', ' ')
     delivery_full_sum = '{0:,}'.format(round(delivery_total-delivery_parts)).replace(',', ' ')
 
-    return f"Диапазон поиска:\n" \
-           f"{start_date} - {end_date}\n\n" \
-           f"Найдено заказов: {len(all_messages)}\n" \
-           f"Сумма за все заказы: {total}₽\n\n" \
-           f"Сумма чеков долями: {total_parts}₽ - {round(parts/all_mess_total*100,2)}%\n" \
-           f"Количество чеков долями: {len_parts} - {round(len_parts/len(all_messages)*100,2)}%\n\n" \
-           f"Сумма полной оплаты: {total_full}₽ - {round(100 - parts/all_mess_total*100,2)}%\n" \
-           f"Количество полной оплаты: {len(all_messages) - len_parts} - {round(100 - len_parts/len(all_messages)*100,2)}%\n\n" \
-           f"Количество доставок всего: {len(all_messages)}\n" \
-           f"Количество доставок по Екатеринбургу: {ekb_delivery} - {round(ekb_delivery/len(all_messages)*100,2)}%\n" \
-           f"Количество бесплатных доставок: {free_delivery} - {round(free_delivery/len(all_messages)*100,2)}%\n" \
-           f"Количество доставок в другие города: {len_delivery_total} - {round(len_delivery_total/len(all_messages)*100,2)}%\n\n" \
-           f"Сумма СДЭК: {total_sdek}₽ - {round(delivery_total/all_mess_total*100,2)}%\n" \
-           f"Сумма СДЭК долями: {delivery_parts_sum}₽ - {round(delivery_parts/delivery_total*100,2)}%\n" \
-           f"Количество СДЭК долями: {len_delivery_parts} - {round(len_delivery_parts/len_delivery_total*100,2)}%\n" \
-           f"Сумма СДЭК полной оплаты: {delivery_full_sum}₽ - {round(100 - delivery_parts/delivery_total*100,2)}%\n" \
-           f"Количество СДЭК полной оплаты: {len_delivery_total - len_delivery_parts} - {round((len_delivery_total - len_delivery_parts)/len_delivery_total*100,2)}%" \
-           if all_mess_total != 0 else f"Диапазон поиска:\n" \
-           f"{start_date} - {end_date}\n\n" \
-           f"Найдено заказов: 0\n"
+    if all_mess_total != 0:
+        result = f"Диапазон поиска:\n" \
+                 f"{start_date} - {end_date}\n\n" \
+                 f"Найдено заказов: {len(all_messages)}\n" \
+                 f"Сумма за все заказы: {total}₽\n\n" \
+                 f"Сумма чеков долями: {total_parts}₽ - {round(parts/all_mess_total*100,2)}%\n" \
+                 f"Количество чеков долями: {len_parts} - {round(len_parts/len(all_messages)*100,2)}%\n\n" \
+                 f"Сумма полной оплаты: {total_full}₽ - {round(100 - parts/all_mess_total*100,2)}%\n" \
+                 f"Количество полной оплаты: {len(all_messages) - len_parts} - {round(100 - len_parts/len(all_messages)*100,2)}%\n\n" \
+                 f"Количество доставок всего: {len(all_messages)}\n" \
+                 f"Количество доставок по Екатеринбургу: {ekb_delivery} - {round(ekb_delivery/len(all_messages)*100,2)}%\n" \
+                 f"Количество бесплатных доставок: {free_delivery} - {round(free_delivery/len(all_messages)*100,2)}%\n" \
+                 f"Количество доставок в другие города: {len_delivery_total} - {round(len_delivery_total/len(all_messages)*100,2)}%\n\n"
+    else: return f"Диапазон поиска:\n" \
+                 f"{start_date} - {end_date}\n\n" \
+                 f"Найдено заказов: 0\n"
+
+    if delivery_total != 0:
+        result += f"Сумма СДЭК: {total_sdek}₽ - {round(delivery_total/all_mess_total*100,2)}%\n" \
+                  f"Сумма СДЭК долями: {delivery_parts_sum}₽ - {round(delivery_parts/delivery_total*100,2)}%\n" \
+                  f"Количество СДЭК долями: {len_delivery_parts} - {round(len_delivery_parts/len_delivery_total*100,2)}%\n" \
+                  f"Сумма СДЭК полной оплаты: {delivery_full_sum}₽ - {round(100 - delivery_parts/delivery_total*100,2)}%\n" \
+                  f"Количество СДЭК полной оплаты: {len_delivery_total - len_delivery_parts} - {round((len_delivery_total - len_delivery_parts)/len_delivery_total*100,2)}%"
+    else: result += 'Сумма СДЭК: 0₽ - 0%'
+    return result
 
 
 def get_cities_statistic(all_messages, start_date, end_date):
