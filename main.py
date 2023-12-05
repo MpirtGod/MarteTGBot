@@ -299,7 +299,7 @@ def get_cities_statistic(all_messages, start_date, end_date):
         if i == 10:
             break
         city_percent = round(total_by_cities[city[0]]/all_cities_total*100, 2)
-        city_delivery_percent = round(delivery_by_cities[city[0]]/all_cities_delivery * 100, 2)
+        city_delivery_percent = round(delivery_by_cities[city[0]]/all_cities_delivery * 100, 2) if all_cities_delivery != 0 else 0
         city_sales = "{0:,}".format(round(city[2])).replace(",", " ")
         city_delivery = "{0:,}".format(round(city[3])).replace(",", " ")
         result += f'{city[0]}: {city[1]} ({city_sales}₽) - {city_percent}%\nСумма доставки: {city_delivery}₽ - {city_delivery_percent}%\n\n'
