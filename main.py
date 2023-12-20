@@ -32,6 +32,7 @@ def get_letter_text_from_html(body):
         False в случае ошибки при извлечении текста из HTML.
     """
     try:
+        body = re.sub(re.compile(r'<a.*?a>', re.DOTALL), '', body) #Удаляет название вещи, убрать если нужна вещь, переписать статистику по вещам
         soup = BeautifulSoup(body, "html.parser")
         text = soup.get_text()
 
@@ -121,7 +122,7 @@ def get_letter_text(msg):
     return msg
 
 
-def convert_statistic(all_messages, start_date, end_date):
+def get_sales_statistic(all_messages, start_date, end_date):
     """
     Высчитывает и преобразует статистику по заказам в удобочитаемый текст.
 
@@ -142,7 +143,10 @@ def convert_statistic(all_messages, start_date, end_date):
 
     all_mess_total = []
     parts = []
+    products_count = []
+    products_parts_count = []
     for message in all_messages:
+        #----------------- Подсчет суммы ----------------
         total = float(re.search('Sub total: (.+?) RUB', message).group(1))
         if 'Екатеринбург' not in message:
             delivery = re.search('Delivery: (.+?) Payment', message).group(1)
@@ -156,12 +160,23 @@ def convert_statistic(all_messages, start_date, end_date):
         all_mess_total.append(total)
         if 'Долями' in message:
             parts.append(total)
+        #------------------------------------------------
+        #-------- Подсчет статистики по товарам ---------
+        products_list = re.search('Amount (.+?) RUB Subtotal', message).group(1)
+        products_list = [float(match.group()) for match in re.finditer(r'\b\d+\.\d+|\b\d+\b', products_list)][2::4]
+        products_count += products_list
+        if 'Долями' in message:
+            products_parts_count += products_list
+        # -----------------------------------------------
 
     start_date = start_date.strftime('%d.%m.%Y')
     end_date = end_date.strftime('%d.%m.%Y')
     all_mess_total = round(sum(all_mess_total))
     len_parts = len(parts)
     parts = round(sum(parts))
+    products_total = int(sum(products_count))
+    products_parts_total = int(sum(products_parts_count))
+    products_full_total = products_total - products_parts_total
 
     #Преобразование чисел в нужный формат
 
@@ -169,18 +184,44 @@ def convert_statistic(all_messages, start_date, end_date):
     total_parts = '{0:,}'.format(parts).replace(',', ' ')
     total_full = '{0:,}'.format(round(all_mess_total - parts)).replace(',', ' ')
 
+    #Переменные по чекам
+    mean_receipt = '0' if all_mess_total == 0 else '{0:,}'.format(round(all_mess_total/len(all_messages))).replace(',', ' ')
+    mean_product_count = '0' if products_total == 0 else '{0:,}'.format(round(products_total/len(all_messages), 2)).replace(',', ' ')
+    mean_product_price = '0' if all_mess_total == 0 else '{0:,}'.format(round(all_mess_total/products_total)).replace(',', ' ')
+
+    mean_receipt_parts = '0' if parts == 0 else '{0:,}'.format(round(parts / len_parts)).replace(',', ' ')
+    mean_product_count_parts = '0' if products_parts_total == 0 else '{0:,}'.format(round(products_parts_total / len_parts, 2)).replace(',', ' ')
+    mean_product_price_parts = '0' if parts == 0 else '{0:,}'.format(round(parts / products_parts_total)).replace(',', ' ')
+
+    mean_receipt_full = '0' if (all_mess_total - parts) == 0 else '{0:,}'.format(round((all_mess_total - parts) / (len(all_messages) - len_parts))).replace(',', ' ')
+    mean_product_count_full = '0' if products_full_total == 0 else '{0:,}'.format(round(products_full_total / (len(all_messages) - len_parts), 2)).replace(',', ' ')
+    mean_product_price_full = '0' if (all_mess_total - parts) == 0 else '{0:,}'.format(round((all_mess_total - parts) / products_full_total)).replace(',', ' ')
+
     if all_mess_total != 0:
+        return f"<b>Диапазон поиска:</b>\n" \
+               f"<b>{start_date} - {end_date}</b>\n\n" \
+               f"Найдено заказов: {len(all_messages)}\n" \
+               f"Количество товаров: {products_total}\n" \
+               f"Сумма за все заказы: {total}₽\n" \
+               f"Средний чек: {mean_receipt}₽\n" \
+               f"Среднее количество товаров в чеке: {mean_product_count} шт\n" \
+               f"Средняя стоимость товара: {mean_product_price}₽\n\n" \
+               f"<b><u>Оплата долями:</u></b>\n" \
+               f"Сумма заказов: {total_parts}₽ - {round(parts/all_mess_total*100, 2)}%\n" \
+               f"Количество чеков: {len_parts} - {round(len_parts/len(all_messages)*100, 2)}%\n" \
+               f"Средний чек: {mean_receipt_parts}₽\n" \
+               f"Среднее количество товаров в чеке: {mean_product_count_parts} шт\n" \
+               f"Средняя стоимость товара: {mean_product_price_parts}₽\n\n" \
+               f"<b><u>Полная оплата:</u></b>\n" \
+               f"Сумма заказов: {total_full}₽ - {round(100 - parts/all_mess_total*100, 2)}%\n" \
+               f"Количество чеков: {len(all_messages) - len_parts} - {round(100 - len_parts/len(all_messages)*100,2)}%\n" \
+               f"Средний чек: {mean_receipt_full}₽\n" \
+               f"Среднее количество товаров в чеке: {mean_product_count_full} шт\n" \
+               f"Средняя стоимость товара: {mean_product_price_full}₽"
+    else:
         return f"Диапазон поиска:\n" \
-                 f"{start_date} - {end_date}\n\n" \
-                 f"Найдено заказов: {len(all_messages)}\n" \
-                 f"Сумма за все заказы: {total}₽\n\n" \
-                 f"Сумма чеков долями: {total_parts}₽ - {round(parts/all_mess_total*100,2)}%\n" \
-                 f"Количество чеков долями: {len_parts} - {round(len_parts/len(all_messages)*100,2)}%\n\n" \
-                 f"Сумма полной оплаты: {total_full}₽ - {round(100 - parts/all_mess_total*100,2)}%\n" \
-                 f"Количество полной оплаты: {len(all_messages) - len_parts} - {round(100 - len_parts/len(all_messages)*100,2)}%\n\n"
-    else: return f"Диапазон поиска:\n" \
-                 f"{start_date} - {end_date}\n\n" \
-                 f"Найдено заказов: 0\n"
+               f"{start_date} - {end_date}\n\n" \
+               f"Найдено заказов: 0\n"
 
 
 def get_cities_statistic(all_messages, start_date, end_date):
@@ -206,6 +247,8 @@ def get_cities_statistic(all_messages, start_date, end_date):
     all_cities_delivery = 0
     total_by_cities = {}
     delivery_by_cities = {}
+    products_count = {}
+    all_cities_products = []
     for message in all_messages:
         address = re.search('RU: (.+?) Purchaser', message).group(1)
         address = re.sub(r' Amount:.*', '', address)
@@ -240,17 +283,25 @@ def get_cities_statistic(all_messages, start_date, end_date):
         all_cities_delivery += delivery
 
         total_by_cities.setdefault(city, 0)
-        total_by_cities[city] += total
+        total_by_cities[city] += total - delivery
         all_cities_total += total
+
+        products_count.setdefault(city, [])
+        products_list = re.search('Amount (.+?) RUB Subtotal', message).group(1)
+        products_list = [float(match.group()) for match in re.finditer(r'\b\d+\.\d+|\b\d+\b', products_list)][2::4]
+        products_count[city] += products_list
+        all_cities_products += products_list
 
     start_date = start_date.strftime('%d.%m.%Y')
     end_date = end_date.strftime('%d.%m.%Y')
+    all_cities_products_sum = int(sum(all_cities_products))
     counter = Counter(cities).most_common()
     city_statistic = []
     for city, count in counter:
         city_total = round(total_by_cities[city])
         city_delivery = round(delivery_by_cities[city])
-        city_statistic.append((city, count, city_total, city_delivery))
+        city_products_count = int(sum(products_count[city]))
+        city_statistic.append((city, count, city_total, city_delivery, city_products_count))
 
     sorted_city_statistic = sorted(city_statistic, key=lambda x: (-x[1], -x[2])) #Сортировка по количеству заказов, второстепенно по процентам
 
@@ -259,12 +310,13 @@ def get_cities_statistic(all_messages, start_date, end_date):
     cities_total = '{0:,}'.format(round(all_cities_total)).replace(',', ' ')
     city_delivery = '{0:,}'.format(round(all_cities_delivery)).replace(',', ' ')
 
-    result = f"Диапазон поиска:\n" \
-             f"{start_date} - {end_date}\n\n" \
+    result = f"<b>Диапазон поиска:</b>\n" \
+             f"<b>{start_date} - {end_date}</b>\n\n" \
              f'Найдено заказов: {len(cities)}\n' \
              f'Сумма за все заказы: {cities_total}₽ (С учетом доставки)\n' \
-             f'Сумма доставки за все заказы: {city_delivery}₽\n\n' \
-             f'<b>Статистика по городам, в которые чаще всего заказывают (Топ-10):</b>\n\n'
+             f'Сумма доставки за все заказы: {city_delivery}₽\n' \
+             f'Количество товаров: {all_cities_products_sum}\n\n' \
+             f'<b><u>Статистика по городам, в которые чаще всего заказывают (Топ-10):</u></b>\n\n'
     i = 0
     for city in sorted_city_statistic:
         if i == 10:
@@ -273,14 +325,19 @@ def get_cities_statistic(all_messages, start_date, end_date):
         city_delivery_percent = round(delivery_by_cities[city[0]]/all_cities_delivery * 100, 2) if all_cities_delivery != 0 else 0
         city_sales = "{0:,}".format(round(city[2])).replace(",", " ")
         city_delivery = "{0:,}".format(round(city[3])).replace(",", " ")
-        result += f'{city[0]}: {city[1]} ({city_sales}₽) - {city_percent}%\nСумма доставки: {city_delivery}₽ - {city_delivery_percent}%\n\n'
+        city_mean_recipe = "{0:,}".format(round(city[2]/city[1])).replace(",", " ")
+
+        result += f'<b>{city[0]}</b>: {city[1]} ({city_sales}₽) - {city_percent}%\n' \
+                  f'Средний чек: {city_mean_recipe}₽\n' \
+                  f'Среднее количество товаров: {round(city[4]/city[1],2)} шт\n' \
+                  f'Сумма доставки: {city_delivery}₽ - {city_delivery_percent}%\n\n'
         i+=1
     return result
 
 
 def get_sdek_statistic(all_messages, start_date, end_date):
     """
-    Высчитывает и преобразует статистику по заказам в удобочитаемый текст.
+    Высчитывает и преобразует статистику по доставкам в удобочитаемый текст.
 
     Parameters
     ----------
@@ -294,7 +351,7 @@ def get_sdek_statistic(all_messages, start_date, end_date):
     Returns
     -------
     str
-        Текстовое представление статистики по заказам.
+        Текстовое представление статистики по доставке.
     """
 
     all_mess_total = []
@@ -336,16 +393,16 @@ def get_sdek_statistic(all_messages, start_date, end_date):
     delivery_full_sum = '{0:,}'.format(round(delivery_total-delivery_parts)).replace(',', ' ')
 
     if all_mess_total != 0:
-        result = f"Диапазон поиска:\n" \
-                 f"{start_date} - {end_date}\n\n" \
+        result = f"<b>Диапазон поиска:</b>\n" \
+                 f"<b>{start_date} - {end_date}</b>\n\n" \
                  f"Найдено заказов: {len(all_messages)}\n" \
                  f"Сумма за все заказы: {total}₽\n\n" \
                  f"Количество доставок всего: {len(all_messages)}\n" \
                  f"Количество доставок по Екатеринбургу: {ekb_delivery} - {round(ekb_delivery/len(all_messages)*100,2)}%\n" \
                  f"Количество бесплатных доставок: {free_delivery} - {round(free_delivery/len(all_messages)*100,2)}%\n" \
                  f"Количество доставок в другие города: {len_delivery_total} - {round(len_delivery_total/len(all_messages)*100,2)}%\n\n"
-    else: return f"Диапазон поиска:\n" \
-                 f"{start_date} - {end_date}\n\n" \
+    else: return f"<b>Диапазон поиска:</b>\n" \
+                 f"<b>{start_date} - {end_date}</b>\n\n" \
                  f"Найдено заказов: 0\n"
 
     if delivery_total != 0:
@@ -450,7 +507,7 @@ def make_statistic(start_date, end_date, kind_of_statistic):
     # print('\n'.join(all_messages))
     print("-------------Done in {:4}-------------\n".format(time.time() - start))
     if kind_of_statistic == 'статистика по продажам':
-        return convert_statistic(all_messages, start_date, end_date)
+        return get_sales_statistic(all_messages, start_date, end_date)
     elif kind_of_statistic == 'статистика по городам':
         return get_cities_statistic(all_messages, start_date, end_date)
     elif kind_of_statistic == 'статистика по доставкам':
