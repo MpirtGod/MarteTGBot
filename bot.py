@@ -9,7 +9,7 @@ from functools import wraps
 
 bot = telebot.TeleBot(token=TOKEN)
 
-last_message_is_city_statistic = False
+what_statistic_last = 'статистика по продажам'
 
 
 def is_known_username(username):
@@ -81,11 +81,16 @@ def check_date(date_string):
 @bot.message_handler(commands=['start'])
 @private_access()
 def start(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    statistic_sales = types.KeyboardButton('Статистика по продажам')
-    statistic_by_cities = types.KeyboardButton('Статистика по городам')
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 
-    markup.add(statistic_sales, statistic_by_cities)
+    # Большая кнопка сверху
+    statistic_sales = types.KeyboardButton('Статистика по продажам')
+    markup.add(statistic_sales)
+
+    # Две маленькие кнопки снизу
+    row = [types.KeyboardButton('Статистика по городам'), types.KeyboardButton('Статистика по доставкам')]
+    markup.row(*row)
+
     text = f'Привет, <b>{message.from_user.first_name}</b>, для использования бота нажми на предложенные кнопки'
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
@@ -99,11 +104,15 @@ def start_text(message):
 # @bot.message_handler(commands=['help'])
 # @private_access()
 # def help(message):
-#     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-#     statistic_sales = types.KeyboardButton('Статистика по продажам')
-#     statistic_by_cities = types.KeyboardButton('Статистика по городам')
+#     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 #
-#     markup.add(statistic_sales, statistic_by_cities)
+#     # Большая кнопка сверху
+#     statistic_sales = types.KeyboardButton('Статистика по продажам')
+#     markup.add(statistic_sales)
+#
+#     # Две маленькие кнопки снизу
+#     row = [types.KeyboardButton('Статистика по городам'), types.KeyboardButton('Статистика по доставкам')]
+#     markup.row(*row)
 #     text = f'Этот Бот создан для магазина Márte. Для вывода статистики за определенный промежуток времени нажмите "Статистика".'
 #     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 #
@@ -117,11 +126,15 @@ def start_text(message):
 @bot.message_handler(func=lambda message: message.text.lower() == 'назад')
 @private_access()
 def back(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    statistic_sales = types.KeyboardButton('Статистика по продажам')
-    statistic_by_cities = types.KeyboardButton('Статистика по городам')
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 
-    markup.add(statistic_sales, statistic_by_cities)
+    # Большая кнопка сверху
+    statistic_sales = types.KeyboardButton('Статистика по продажам')
+    markup.add(statistic_sales)
+
+    # Две маленькие кнопки снизу
+    row = [types.KeyboardButton('Статистика по городам'), types.KeyboardButton('Статистика по доставкам')]
+    markup.row(*row)
     text = f'Выберите команду'
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
@@ -129,7 +142,7 @@ def back(message):
 @bot.message_handler(commands=['statistic_sales'])
 @private_access()
 def statistics_sales(message):
-    global last_message_is_city_statistic
+    global what_statistic_last
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     statistic_day = types.KeyboardButton('Статистика за сегодня')
     statistic_week = types.KeyboardButton('Статистика за рабочую неделю')
@@ -137,7 +150,7 @@ def statistics_sales(message):
     statistic_all = types.KeyboardButton('Статистика за все время')
     back = types.KeyboardButton('Назад')
 
-    last_message_is_city_statistic = False
+    what_statistic_last = 'статистика по продажам'
     markup.add(statistic_day, statistic_week, statistic_month, statistic_all, back)
     text = f'Выберите период за который выведется статистика или введите одну или две даты (через тире) в формате 01.01.2001 для поиска по произвольному промежутку'
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
@@ -152,7 +165,7 @@ def statistics_sales_text(message):
 @bot.message_handler(commands=['statistic_by_cities'])
 @private_access()
 def statistics_by_cities(message):
-    global last_message_is_city_statistic
+    global what_statistic_last
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     statistic_day = types.KeyboardButton('Статистика за сегодня')
     statistic_week = types.KeyboardButton('Статистика за рабочую неделю')
@@ -160,7 +173,7 @@ def statistics_by_cities(message):
     statistic_all = types.KeyboardButton('Статистика за все время')
     back = types.KeyboardButton('Назад')
 
-    last_message_is_city_statistic = True
+    what_statistic_last = 'статистика по городам'
     markup.add(statistic_day, statistic_week, statistic_month, statistic_all, back)
     text = f'Выберите период за который выведется статистика или введите одну или две даты (через тире) в формате 01.01.2001 для поиска по произвольному промежутку'
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
@@ -172,13 +185,36 @@ def statistics_by_cities_text(message):
     statistics_by_cities(message)
 
 
+@bot.message_handler(commands=['statistic_sdek'])
+@private_access()
+def statistics_sdek(message):
+    global what_statistic_last
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    statistic_day = types.KeyboardButton('Статистика за сегодня')
+    statistic_week = types.KeyboardButton('Статистика за рабочую неделю')
+    statistic_month = types.KeyboardButton('Статистика за месяц')
+    statistic_all = types.KeyboardButton('Статистика за все время')
+    back = types.KeyboardButton('Назад')
+
+    what_statistic_last = 'статистика по доставкам'
+    markup.add(statistic_day, statistic_week, statistic_month, statistic_all, back)
+    text = f'Выберите период за который выведется статистика или введите одну или две даты (через тире) в формате 01.01.2001 для поиска по произвольному промежутку'
+    bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: message.text.lower() == 'статистика по доставкам')
+@private_access()
+def statistics_sdek_text(message):
+    statistics_sdek(message)
+
+
 @bot.message_handler(func=lambda message: message.text.lower() == 'статистика за сегодня' or
                                           message.text.lower() == 'статистика за рабочую неделю' or
                                           message.text.lower() == 'статистика за месяц' or
                                           message.text.lower() == 'статистика за все время')
 @private_access()
-def make_statistic_cities(message):
-    global last_message_is_city_statistic
+def make_statistics(message):
+    global what_statistic_last
     time_dict = {'сегодня': (datetime.now()),
                  'неделю': (datetime.today() - timedelta(days=datetime.today().weekday() % 7)),
                  'месяц': datetime(datetime.now().year, datetime.now().month, 1),
@@ -186,13 +222,17 @@ def make_statistic_cities(message):
     bot.send_message(message.chat.id, 'Загрузка...', parse_mode='html')
     start_date = time_dict[message.text.split(' ')[-1]]
 
-    statistic = make_statistic(start_date=start_date, end_date=datetime.now(), by_cities=last_message_is_city_statistic)
+    statistic = make_statistic(start_date=start_date, end_date=datetime.now(), kind_of_statistic=what_statistic_last)
 
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+
+    # Большая кнопка сверху
     statistic_sales = types.KeyboardButton('Статистика по продажам')
-    statistic_by_cities = types.KeyboardButton('Статистика по городам')
+    markup.add(statistic_sales)
 
-    markup.add(statistic_sales, statistic_by_cities)
+    # Две маленькие кнопки снизу
+    row = [types.KeyboardButton('Статистика по городам'), types.KeyboardButton('Статистика по доставкам')]
+    markup.row(*row)
     text = statistic
     bot.delete_message(message.chat.id, message_id=message.id + 1)
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
@@ -202,8 +242,8 @@ def make_statistic_cities(message):
                                           re.match(r'\d{2}\.\d{2}\.\d{4}[-]\d{2}\.\d{2}\.\d{4}',
                                                    message.text.replace(' ', '')))
 @private_access()
-def make_statistic_with_user_date(message):
-    global last_message_is_city_statistic
+def make_statistics_with_user_date(message):
+    global what_statistic_last
     message_text = message.text.replace(' ', '').split('-')
     if (len(message_text) == 1 and check_date(message_text[0])) or \
             (len(message_text) == 2 and check_date(message_text[0]) and check_date(message_text[1])):
@@ -211,34 +251,49 @@ def make_statistic_with_user_date(message):
         start_date = datetime.strptime(message_text[0], '%d.%m.%Y')
         end_date = datetime.strptime(message_text[1], '%d.%m.%Y') if len(message_text) == 2 else datetime.now()
 
-        statistic = make_statistic(start_date=start_date, end_date=end_date, by_cities=last_message_is_city_statistic)
+        statistic = make_statistic(start_date=start_date, end_date=end_date, kind_of_statistic=what_statistic_last)
 
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+
+        # Большая кнопка сверху
         statistic_sales = types.KeyboardButton('Статистика по продажам')
-        statistic_by_cities = types.KeyboardButton('Статистика по городам')
+        markup.add(statistic_sales)
 
-        markup.add(statistic_sales, statistic_by_cities)
+        # Две маленькие кнопки снизу
+        row = [types.KeyboardButton('Статистика по городам'), types.KeyboardButton('Статистика по доставкам')]
+        markup.row(*row)
         text = statistic
         bot.delete_message(message.chat.id, message_id=message.id + 1)
         bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
     else:
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-        statistic_sales = types.KeyboardButton('Статистика по продажам')
-        statistic_by_cities = types.KeyboardButton('Статистика по городам')
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 
-        markup.add(statistic_sales, statistic_by_cities)
+        # Большая кнопка сверху
+        statistic_sales = types.KeyboardButton('Статистика по продажам')
+        markup.add(statistic_sales)
+
+        # Две маленькие кнопки снизу
+        row = [types.KeyboardButton('Статистика по городам'), types.KeyboardButton('Статистика по доставкам')]
+        markup.row(*row)
         bot.send_message(message.chat.id, "Некорректная дата", parse_mode='html', reply_markup=markup)
 
 
 @bot.message_handler()
 @private_access()
 def get_user_text(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    statistic_sales = types.KeyboardButton('Статистика по продажам')
-    statistic_by_cities = types.KeyboardButton('Статистика по городам')
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 
-    markup.add(statistic_sales, statistic_by_cities)
-    text = f'Неизвестная команда'
+    # Большая кнопка сверху
+    statistic_sales = types.KeyboardButton('Статистика по продажам')
+    markup.add(statistic_sales)
+
+    # Две маленькие кнопки снизу
+    row = [types.KeyboardButton('Статистика по городам'), types.KeyboardButton('Статистика по доставкам')]
+    markup.row(*row)
+    if message.text.lower() == 'катя':
+        text = 'Лох'
+    else:
+        text = f'Неизвестная команда'
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
 

@@ -141,10 +141,7 @@ def convert_statistic(all_messages, start_date, end_date):
     """
 
     all_mess_total = []
-    delivery_total = []
     parts = []
-    delivery_parts = []
-    free_delivery = 0
     for message in all_messages:
         total = float(re.search('Sub total: (.+?) RUB', message).group(1))
         if 'Екатеринбург' not in message:
@@ -156,11 +153,6 @@ def convert_statistic(all_messages, start_date, end_date):
                 delivery = 0
             delivery = float(delivery)
             total += delivery
-            if delivery != 0:
-                delivery_total.append(delivery)
-                if 'Долями' in message:
-                    delivery_parts.append(delivery)
-            else: free_delivery += 1
         all_mess_total.append(total)
         if 'Долями' in message:
             parts.append(total)
@@ -168,48 +160,27 @@ def convert_statistic(all_messages, start_date, end_date):
     start_date = start_date.strftime('%d.%m.%Y')
     end_date = end_date.strftime('%d.%m.%Y')
     all_mess_total = round(sum(all_mess_total))
-    len_delivery_total = len(delivery_total)
-    delivery_total = round(sum(delivery_total))
     len_parts = len(parts)
     parts = round(sum(parts))
-    len_delivery_parts = len(delivery_parts)
-    delivery_parts = round(sum(delivery_parts))
-    ekb_delivery = len(all_messages) - len_delivery_total - free_delivery
 
     #Преобразование чисел в нужный формат
 
     total = '{0:,}'.format(all_mess_total).replace(',', ' ')
-    total_sdek = '{0:,}'.format(delivery_total).replace(',', ' ')
     total_parts = '{0:,}'.format(parts).replace(',', ' ')
     total_full = '{0:,}'.format(round(all_mess_total - parts)).replace(',', ' ')
-    delivery_parts_sum = '{0:,}'.format(delivery_parts).replace(',', ' ')
-    delivery_full_sum = '{0:,}'.format(round(delivery_total-delivery_parts)).replace(',', ' ')
 
     if all_mess_total != 0:
-        result = f"Диапазон поиска:\n" \
+        return f"Диапазон поиска:\n" \
                  f"{start_date} - {end_date}\n\n" \
                  f"Найдено заказов: {len(all_messages)}\n" \
                  f"Сумма за все заказы: {total}₽\n\n" \
                  f"Сумма чеков долями: {total_parts}₽ - {round(parts/all_mess_total*100,2)}%\n" \
                  f"Количество чеков долями: {len_parts} - {round(len_parts/len(all_messages)*100,2)}%\n\n" \
                  f"Сумма полной оплаты: {total_full}₽ - {round(100 - parts/all_mess_total*100,2)}%\n" \
-                 f"Количество полной оплаты: {len(all_messages) - len_parts} - {round(100 - len_parts/len(all_messages)*100,2)}%\n\n" \
-                 f"Количество доставок всего: {len(all_messages)}\n" \
-                 f"Количество доставок по Екатеринбургу: {ekb_delivery} - {round(ekb_delivery/len(all_messages)*100,2)}%\n" \
-                 f"Количество бесплатных доставок: {free_delivery} - {round(free_delivery/len(all_messages)*100,2)}%\n" \
-                 f"Количество доставок в другие города: {len_delivery_total} - {round(len_delivery_total/len(all_messages)*100,2)}%\n\n"
+                 f"Количество полной оплаты: {len(all_messages) - len_parts} - {round(100 - len_parts/len(all_messages)*100,2)}%\n\n"
     else: return f"Диапазон поиска:\n" \
                  f"{start_date} - {end_date}\n\n" \
                  f"Найдено заказов: 0\n"
-
-    if delivery_total != 0:
-        result += f"Сумма СДЭК: {total_sdek}₽ - {round(delivery_total/all_mess_total*100,2)}%\n" \
-                  f"Сумма СДЭК долями: {delivery_parts_sum}₽ - {round(delivery_parts/delivery_total*100,2)}%\n" \
-                  f"Количество СДЭК долями: {len_delivery_parts} - {round(len_delivery_parts/len_delivery_total*100,2)}%\n" \
-                  f"Сумма СДЭК полной оплаты: {delivery_full_sum}₽ - {round(100 - delivery_parts/delivery_total*100,2)}%\n" \
-                  f"Количество СДЭК полной оплаты: {len_delivery_total - len_delivery_parts} - {round((len_delivery_total - len_delivery_parts)/len_delivery_total*100,2)}%"
-    else: result += 'Сумма СДЭК: 0₽ - 0%'
-    return result
 
 
 def get_cities_statistic(all_messages, start_date, end_date):
@@ -307,6 +278,86 @@ def get_cities_statistic(all_messages, start_date, end_date):
     return result
 
 
+def get_sdek_statistic(all_messages, start_date, end_date):
+    """
+    Высчитывает и преобразует статистику по заказам в удобочитаемый текст.
+
+    Parameters
+    ----------
+    all_messages : list of str
+        Список сообщений с информацией о заказах.
+    start_date : datetime
+        Начальная дата периода статистики.
+    end_date : datetime
+        Конечная дата периода статистики.
+
+    Returns
+    -------
+    str
+        Текстовое представление статистики по заказам.
+    """
+
+    all_mess_total = []
+    delivery_total = []
+    delivery_parts = []
+    free_delivery = 0
+    for message in all_messages:
+        total = float(re.search('Sub total: (.+?) RUB', message).group(1))
+        if 'Екатеринбург' not in message:
+            delivery = re.search('Delivery: (.+?) Payment', message).group(1)
+            try:
+                delivery = re.findall("[+-]?\d+\.\d+", delivery)
+                delivery = delivery[0]
+            except (Exception) as exp: #Обработка бесплатной доставки
+                delivery = 0
+            delivery = float(delivery)
+            total += delivery
+            if delivery != 0:
+                delivery_total.append(delivery)
+                if 'Долями' in message:
+                    delivery_parts.append(delivery)
+            else: free_delivery += 1
+        all_mess_total.append(total)
+
+    start_date = start_date.strftime('%d.%m.%Y')
+    end_date = end_date.strftime('%d.%m.%Y')
+    all_mess_total = round(sum(all_mess_total))
+    len_delivery_total = len(delivery_total)
+    delivery_total = round(sum(delivery_total))
+    len_delivery_parts = len(delivery_parts)
+    delivery_parts = round(sum(delivery_parts))
+    ekb_delivery = len(all_messages) - len_delivery_total - free_delivery
+
+    #Преобразование чисел в нужный формат
+
+    total = '{0:,}'.format(all_mess_total).replace(',', ' ')
+    total_sdek = '{0:,}'.format(delivery_total).replace(',', ' ')
+    delivery_parts_sum = '{0:,}'.format(delivery_parts).replace(',', ' ')
+    delivery_full_sum = '{0:,}'.format(round(delivery_total-delivery_parts)).replace(',', ' ')
+
+    if all_mess_total != 0:
+        result = f"Диапазон поиска:\n" \
+                 f"{start_date} - {end_date}\n\n" \
+                 f"Найдено заказов: {len(all_messages)}\n" \
+                 f"Сумма за все заказы: {total}₽\n\n" \
+                 f"Количество доставок всего: {len(all_messages)}\n" \
+                 f"Количество доставок по Екатеринбургу: {ekb_delivery} - {round(ekb_delivery/len(all_messages)*100,2)}%\n" \
+                 f"Количество бесплатных доставок: {free_delivery} - {round(free_delivery/len(all_messages)*100,2)}%\n" \
+                 f"Количество доставок в другие города: {len_delivery_total} - {round(len_delivery_total/len(all_messages)*100,2)}%\n\n"
+    else: return f"Диапазон поиска:\n" \
+                 f"{start_date} - {end_date}\n\n" \
+                 f"Найдено заказов: 0\n"
+
+    if delivery_total != 0:
+        result += f"Сумма СДЭК: {total_sdek}₽ - {round(delivery_total/all_mess_total*100,2)}%\n" \
+                  f"Сумма СДЭК долями: {delivery_parts_sum}₽ - {round(delivery_parts/delivery_total*100,2)}%\n" \
+                  f"Количество СДЭК долями: {len_delivery_parts} - {round(len_delivery_parts/len_delivery_total*100,2)}%\n" \
+                  f"Сумма СДЭК полной оплаты: {delivery_full_sum}₽ - {round(100 - delivery_parts/delivery_total*100,2)}%\n" \
+                  f"Количество СДЭК полной оплаты: {len_delivery_total - len_delivery_parts} - {round((len_delivery_total - len_delivery_parts)/len_delivery_total*100,2)}%"
+    else: result += 'Сумма СДЭК: 0₽ - 0%'
+    return result
+
+
 def pull_message(message_uid, check_date, end_date):
     """
     Получает текст сообщения по его UID из почтового ящика.
@@ -345,7 +396,7 @@ def pull_message(message_uid, check_date, end_date):
     imap.logout()
 
 
-def make_statistic(start_date, end_date, by_cities=False):
+def make_statistic(start_date, end_date, kind_of_statistic):
     """
     Создает статистику по заказам за указанный период.
 
@@ -398,7 +449,10 @@ def make_statistic(start_date, end_date, by_cities=False):
 
     # print('\n'.join(all_messages))
     print("-------------Done in {:4}-------------\n".format(time.time() - start))
-    if not by_cities:
+    if kind_of_statistic == 'статистика по продажам':
         return convert_statistic(all_messages, start_date, end_date)
-    else:
+    elif kind_of_statistic == 'статистика по городам':
         return get_cities_statistic(all_messages, start_date, end_date)
+    elif kind_of_statistic == 'статистика по доставкам':
+        return get_sdek_statistic(all_messages, start_date, end_date)
+    else: return "Ошибка"
