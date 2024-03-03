@@ -10,7 +10,7 @@ import quopri
 from collections import Counter
 import multiprocessing
 from multiprocessing.pool import ThreadPool
-from translate import Translator
+from googletrans import Translator
 
 global all_messages
 
@@ -258,11 +258,11 @@ def get_cities_statistic(all_messages, start_date, end_date):
             city = address[-1]
         else:
             city = address[1]
-        translator = Translator(from_lang="English", to_lang="russian")
+        translator = Translator()
         if re.search('[a-zA-Z]', city):
             try:
-                city = translator.translate(city)
-                city = re.sub(r'[^А-Яа-я\-\s]', '', city)
+                city = translator.translate(city, src='en', dest='ru').text
+                city = re.sub(r'[^А-яЁё\-\s]', '', city)
             except Exception as _ex:
                 pass
         cities.append(city)
