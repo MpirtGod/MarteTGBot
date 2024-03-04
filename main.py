@@ -249,6 +249,7 @@ def get_cities_statistic(all_messages, start_date, end_date):
     delivery_by_cities = {}
     products_count = {}
     all_cities_products = []
+    translator = Translator()
     for message in all_messages:
         address = re.search('RU: (.+?) Purchaser', message).group(1)
         address = re.sub(r' Amount:.*', '', address)
@@ -258,7 +259,6 @@ def get_cities_statistic(all_messages, start_date, end_date):
             city = address[-1]
         else:
             city = address[1]
-        translator = Translator()
         if re.search('[a-zA-Z]', city):
             try:
                 city = translator.translate(city, src='en', dest='ru').text
