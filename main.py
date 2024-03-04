@@ -151,7 +151,7 @@ def get_sales_statistic(all_messages, start_date, end_date):
         if 'Екатеринбург' not in message:
             delivery = re.search('Delivery: (.+?) Payment', message).group(1)
             try:
-                delivery = re.findall("[+-]?\d+\.\d+", delivery)
+                delivery = re.findall(r"\d*\.?\d+", delivery) #\.\d+
                 delivery = delivery[0]
             except (Exception) as exp: #Обработка бесплатной доставки
                 delivery = 0
@@ -271,7 +271,7 @@ def get_cities_statistic(all_messages, start_date, end_date):
         if 'Екатеринбург' not in message:
             delivery = re.search('Delivery: (.+?) Payment', message).group(1)
             try:
-                delivery = re.findall("[+-]?\d+\.\d+", delivery)
+                delivery = re.findall(r"\d*\.?\d+", delivery) #\.\d+
                 delivery = delivery[0]
             except (Exception) as exp:
                 delivery = 0
@@ -363,7 +363,7 @@ def get_sdek_statistic(all_messages, start_date, end_date):
         if 'Екатеринбург' not in message:
             delivery = re.search('Delivery: (.+?) Payment', message).group(1)
             try:
-                delivery = re.findall("[+-]?\d+\.\d+", delivery)
+                delivery = re.findall(r"\d*\.?\d+", delivery) #\.\d+
                 delivery = delivery[0]
             except (Exception) as exp: #Обработка бесплатной доставки
                 delivery = 0
