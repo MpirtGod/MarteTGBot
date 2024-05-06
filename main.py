@@ -13,6 +13,7 @@ from multiprocessing.pool import ThreadPool
 from googletrans import Translator
 
 global all_messages
+global rus_cities
 
 
 def get_letter_text_from_html(body):
@@ -224,6 +225,23 @@ def get_sales_statistic(all_messages, start_date, end_date):
                f"Найдено заказов: 0\n"
 
 
+def find_city(message):
+    translator = Translator()
+    if "Address" not in message:
+        return "Не найден"
+    address = re.search('RU: (.+?) Purchaser', message).group(1)
+    address = re.sub(r' Amount:.*', '', address)
+    address = re.sub(r' Comments:.*', '', address)
+    address = address.split(', ')
+    for location in address:
+        if location.lower().strip() in rus_cities:
+            return location
+    for location in address:
+        location = translator.translate(location, src='en', dest='ru').text
+        if location.lower().strip() in rus_cities:
+            return location
+
+
 def get_cities_statistic(all_messages, start_date, end_date):
     """
     Высчитывает и преобразует статистику по городам в удобочитаемый текст.
@@ -249,22 +267,8 @@ def get_cities_statistic(all_messages, start_date, end_date):
     delivery_by_cities = {}
     products_count = {}
     all_cities_products = []
-    translator = Translator()
     for message in all_messages:
-        address = re.search('RU: (.+?) Purchaser', message).group(1)
-        address = re.sub(r' Amount:.*', '', address)
-        address = re.sub(r' Comments:.*', '', address)
-        address = address.split(', ')
-        if "Point" in address[0]:
-            city = address[-1]
-        else:
-            city = address[1]
-        if re.search('[a-zA-Z]', city):
-            try:
-                city = translator.translate(city, src='en', dest='ru').text
-                city = re.sub(r'[^А-яЁё\-\s]', '', city)
-            except Exception as _ex:
-                pass
+        city = find_city(message)
         cities.append(city)
 
         total = float(re.search('Sub total: (.+?) RUB', message).group(1))
@@ -473,6 +477,11 @@ def make_statistic(start_date, end_date, kind_of_statistic):
         Текстовое представление статистики по заказам или по городам.
     """
     global all_messages
+    global rus_cities
+
+    with open('rus_cities.txt', encoding='UTF-8') as file:
+        rus_cities = file.read().lower()
+
     check_date = start_date - timedelta(days=1)
     # resp_code, directories = imap.list(directory="[Mail]")
     # for directory in directories:
